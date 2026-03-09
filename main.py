@@ -1,4 +1,158 @@
-"""Main entry point for Offline Visual AI Agent 2.0"""
+"""
+main.py - Main Agent Loop
+
+Lightweight Visual AI Agent that:
+1. Observes screen (screenshot)
+2. Reasons with LLM (Ollama llama3:8b)
+3. Plans actions
+4. Executes commands
+5. Reflects on changes
+6. Loops until goal achieved
+
+Runs fully offline.
+"""
+
+import time
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from screenshot import ScreenCapture
+from brain import Brain
+from clicker import Clicker
+from critic import Critic
+
+
+class VisualAgent:
+    """Lightweight Visual AI Agent."""
+    
+    def __init__(self, goal: str = None):
+        self.goal = goal
+        self.screen_capture = ScreenCapture()
+        self.brain = Brain()
+        self.clicker = Clicker()
+        self.critic = Critic()
+        self.max_retries = 3
+        self.max_iterations = 20
+    
+    def run(self, goal: str = None):
+        """Run the agent loop."""
+        if goal:
+            self.goal = goal
+        
+        if not self.goal:
+            print("Error: No goal specified")
+            return
+        
+        # Check Ollama availability
+        if not self.brain.is_available():
+            print("Error: Ollama is not running. Please start Ollama first.")
+            return
+        
+        print(f"Starting Visual AI Agent")
+        print(f"Goal: {self.goal}")
+        print("-" * 50)
+        
+        iteration = 0
+        retry_count = 0
+        
+        while iteration < self.max_iterations:
+            iteration += 1
+            print(f"\n[Iteration {iteration}]")
+            
+            # Step 1: Observe - capture screenshot
+            print("Observing screen...")
+            filepath, screen_img = self.screen_capture.capture()
+            
+            # Step 2: Reason - describe screen to LLM
+            screen_desc = f"Screenshot captured at {filepath}. Screen size: {self.screen_capture.get_screen_size()}"
+            
+            # Step 3: Plan - get actions from LLM
+            print("Planning actions...")
+            actions = self.brain.plan_actions(screen_desc, self.goal)
+            
+            if not actions:
+                print("No actions generated. Asking LLM for guidance...")
+                response = self.brain.generate(f"I need to: {self.goal}. What should I do?")
+                print(f"LLM says: {response}")
+                continue
+            
+            print(f"Actions to execute: {actions}")
+            
+            # Step 4: Act - execute each action
+            for action in actions:
+                print(f"Executing: {action}")
+                success = self.clicker.execute(action)
+                
+                if not success:
+                    print(f"Failed to execute: {action}")
+                    continue
+                
+                # Wait for screen to update
+                time.sleep(0.5)
+                
+                # Step 5: Reflect - check if screen changed
+                print("Checking screen change...")
+                _, new_screen = self.screen_capture.capture()
+                changed = self.critic.has_screen_changed(new_screen)
+                
+                if not changed:
+                    retry_count += 1
+                    print(f"Screen didn't change. Retry {retry_count}/{self.max_retries}")
+                    
+                    if retry_count >= self.max_retries:
+                        print("Max retries reached. Asking LLM for different action...")
+                        new_action = self.brain.reflect(action, False, screen_desc)
+                        if new_action:
+                            print(f"Trying: {new_action}")
+                            self.clicker.execute(new_action)
+                        retry_count = 0
+                else:
+                    print("Screen changed successfully!")
+                    retry_count = 0
+            
+            # Check if goal might be achieved (simple heuristic)
+            user_input = input("\nContinue? (y/n/new goal): ").strip().lower()
+            if user_input == 'n':
+                print("Task completed by user.")
+                break
+            elif user_input != 'y' and user_input:
+                self.goal = user_input
+                print(f"New goal: {self.goal}")
+        
+        print("\n" + "-" * 50)
+        print("Agent finished.")
+
+
+def main():
+    """Main entry point."""
+    print("="*50)
+    print("  Lightweight Visual AI Agent")
+    print("  (No LLaVA - Coordinate-based)")
+    print("="*50)
+    
+    # Get goal from command line or prompt
+    if len(sys.argv) > 1:
+        goal = " ".join(sys.argv[1:])
+    else:
+        goal = input("Enter your goal: ").strip()
+    
+    if not goal:
+        print("No goal provided. Exiting.")
+        return
+    
+    agent = VisualAgent(goal)
+    agent.run()
+
+
+if __name__ == "__main__":
+    main()
+
+
+# ============ OLD CODE BELOW (for reference) ============
+# """Main entry point for Offline Visual AI Agent 2.0"""
 
 import sys
 import os
