@@ -1,37 +1,50 @@
-from ultralytics import YOLO
 import cv2
-
-# load pretrained model
-model = YOLO("yolov8n.pt")
+import numpy as np
 
 
-def detect_ui_elements(image_path):
+def detect_ui(image):
 
-    results = model(image_path)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    elements = []
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    img = cv2.imread(image_path)
+    edges = cv2.Canny(blur, 50, 150)
 
-    for r in results:
+    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        boxes = r.boxes
+    boxes = []
 
-        for box in boxes:
+    for cnt in contours:
 
-            x1, y1, x2, y2 = box.xyxy[0]
+        x, y, w, h = cv2.boundingRect(cnt)
 
-            x = int((x1 + x2) / 2)
-            y = int((y1 + y2) / 2)
+        if w < 40 or h < 20:
+            continue
 
-            cls = int(box.cls[0])
+        aspect = w / float(h)
 
-            label = model.names[cls]
+        label = "unknown"
 
-            elements.append({
-                "type": label,
-                "x": x,
-                "y": y
-            })
+        # Checkbox detection
+        if 0.8 < aspect < 1.2 and 15 < w < 50:
+            label = "checkbox"
 
-    return elements
+        # Button detection
+        elif w > 80 and h > 30:
+            label = "button"
+
+        # Textbox detection
+        elif w > 150 and h < 60:
+            label = "textbox"
+
+        else:
+            continue
+
+        x1 = x
+        y1 = y
+        x2 = x + w
+        y2 = y + h
+
+        boxes.append((x1, y1, x2, y2, label))
+
+    return boxes

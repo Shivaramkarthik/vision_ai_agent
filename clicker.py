@@ -1,16 +1,45 @@
 import pyautogui
+import time
+
 
 pyautogui.FAILSAFE = True
 
 
-def click(x, y):
-    pyautogui.moveTo(x, y, duration=0.3)
-    pyautogui.click()
+def execute_command(command, elements):
 
+    parts = command.split()
 
-def type_text(text):
-    pyautogui.write(text, interval=0.05)
+    action = parts[0]
 
+    if action == "click":
 
-def press_key(key):
-    pyautogui.press(key)
+        index = int(parts[1]) - 1
+
+        if index < 0 or index >= len(elements):
+            print("Invalid element index")
+            return
+
+        e = elements[index]
+
+        x = e["x"]
+        y = e["y"]
+
+        print(f"Clicking element {index+1} at {x},{y}")
+
+        pyautogui.moveTo(x, y, duration=0.2)
+
+        time.sleep(0.2)
+
+        pyautogui.click()
+
+    elif action == "type":
+
+        text = " ".join(parts[1:])
+
+        pyautogui.write(text)
+
+    elif action == "press":
+
+        key = parts[1]
+
+        pyautogui.press(key)

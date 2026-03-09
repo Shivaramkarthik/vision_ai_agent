@@ -1,21 +1,23 @@
-def filter_ui_elements(detections, ocr_text):
-
-    useful_classes = [
-        "button",
-        "text",
-        "input",
-        "icon",
-        "menu"
-    ]
+def filter_ui_elements(elements):
+    """
+    Remove very small or useless UI detections
+    """
 
     filtered = []
 
-    for d in detections:
-        if d["class"] in useful_classes:
-            filtered.append(d)
+    for e in elements:
 
-    for t in ocr_text:
-        if len(t["text"]) > 2:
-            filtered.append(t)
+        width = e.get("width", 0)
+        height = e.get("height", 0)
+
+        # ignore very small detections (noise)
+        if width < 15 or height < 15:
+            continue
+
+        # ignore empty text elements that are tiny
+        if e["type"] == "text" and e["text"].strip() == "" and width < 40:
+            continue
+
+        filtered.append(e)
 
     return filtered

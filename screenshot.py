@@ -1,19 +1,25 @@
 import mss
-import cv2
 import numpy as np
-import time
+import cv2
+import os
 
 
 def capture_screen():
 
+    os.makedirs("screenshots", exist_ok=True)
+
     with mss.mss() as sct:
 
-        screenshot = sct.grab(sct.monitors[1])
+        monitor = sct.monitors[1]
+
+        screenshot = sct.grab(monitor)
 
         img = np.array(screenshot)
 
-        filename = f"screenshots/screen_{int(time.time())}.png"
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-        cv2.imwrite(filename, img)
+        cv2.imwrite("screenshots/screen.png", img)
 
-        return filename
+        print("Screenshot saved: screenshots/screen.png")
+
+        return img

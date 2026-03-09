@@ -1,32 +1,33 @@
 import pytesseract
 import cv2
 
+# Set path to Tesseract
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
-def detect_text_boxes(image_path):
+def read_text(image):
+    """
+    Extract text and bounding boxes from the image using Tesseract OCR
+    """
 
-    img = cv2.imread(image_path)
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     data = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
 
-    elements = []
+    results = []
 
     for i in range(len(data["text"])):
 
         text = data["text"][i].strip()
 
-        if text != "":
+        if text == "":
+            continue
 
-            x = data["left"][i]
-            y = data["top"][i]
+        x = data["left"][i]
+        y = data["top"][i]
+        w = data["width"][i]
+        h = data["height"][i]
 
-            elements.append({
-                "text": text,
-                "x": x,
-                "y": y
-            })
+        results.append((text, (x, y, w, h)))
 
-    return elements
+    return results

@@ -1,47 +1,81 @@
-from ui_detector import detect_ui_elements
-from ocr_reader import detect_text_boxes
+from ocr_reader import read_text
+from ui_detector import detect_ui
+from ui_filter import filter_ui_elements
+from ui_semantic import classify_ui_element
 
 
-def get_screen_state(image_path):
+def text_inside_box(text_box, ui_box):
 
-    ui_elements = detect_ui_elements(image_path)
-    text_elements = detect_text_boxes(image_path)
+    tx, ty, tw, th = text_box
+    ux1, uy1, ux2, uy2 = ui_box
+
+    cx = tx + tw // 2
+    cy = ty + th // 2
+
+    if ux1 <= cx <= ux2 and uy1 <= cy <= uy2:
+        return True
+
+    return False
+
+
+def process_screen(image):
+
+    ocr_results = read_text(image)
+    ui_boxes = detect_ui(image)
 
     elements = []
 
-    # --- keep only useful UI objects ---
-    allowed_ui = ["cell phone", "tv", "laptop", "keyboard"]
+    used_text = set()
 
-    for el in ui_elements:
+    for x1, y1, x2, y2, label in ui_boxes:
 
-        if el["type"] in allowed_ui:
+        attached_text = ""
 
-            elements.append({
-                "type": "ui",
-                "text": el["type"],
-                "x": el["x"],
-                "y": el["y"]
-            })
+        for i, (text, (tx, ty, tw, th)) in enumerate(ocr_results):
 
-    # --- filter OCR text ---
-    for el in text_elements:
+            if text_inside_box((tx, ty, tw, th), (x1, y1, x2, y2)):
+                attached_text += text + " "
+                used_text.add(i)
 
-        text = el["text"].strip()
+        attached_text = attached_text.strip()
 
-        # remove tiny garbage text
-        if len(text) < 3:
-            continue
+        width = int(x2 - x1)
+        height = int(y2 - y1)
 
-        # remove symbols
-        if text in ["©", "&", "*", ".", "-", "_"]:
+        semantic_type = classify_ui_element(label, attached_text, width, height)
+
+        elements.append({
+            "type": semantic_type,
+            "text": attached_text,
+            "x": int((x1 + x2) / 2),
+            "y": int((y1 + y2) / 2),
+            "width": width,
+            "height": height,
+            "x1": int(x1),
+            "y1": int(y1),
+            "x2": int(x2),
+            "y2": int(y2)
+        })
+
+    # Add remaining OCR text
+    for i, (text, (x, y, w, h)) in enumerate(ocr_results):
+
+        if i in used_text:
             continue
 
         elements.append({
             "type": "text",
             "text": text,
-            "x": el["x"],
-            "y": el["y"]
+            "x": x + w // 2,
+            "y": y + h // 2,
+            "width": w,
+            "height": h,
+            "x1": x,
+            "y1": y,
+            "x2": x + w,
+            "y2": y + h
         })
 
-    # limit elements so LLM doesn't get overwhelmed
-    return elements[:30]
+    elements = filter_ui_elements(elements)
+
+    return elements

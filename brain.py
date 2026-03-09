@@ -1,33 +1,64 @@
 import ollama
 
 
-def generate_plan(elements, goal):
+def build_prompt(elements, goal):
 
-    description = ""
+    ui_text = ""
 
-    for i, el in enumerate(elements):
+    for i, e in enumerate(elements):
 
-        description += f"{i+1}. {el['type']} {el['text']} at ({el['x']},{el['y']})\n"
+        ui_text += f'{i+1}. {e["type"]} "{e["text"]}"\n'
 
     prompt = f"""
-You are controlling a computer.
+You are a computer control AI.
 
 Goal:
 {goal}
 
-Visible elements:
-{description}
+UI elements:
 
-Create an action plan using:
+{ui_text}
 
-click <number>
-type <text>
-press <key>
+Rules:
+- Use element numbers when clicking.
+- Format commands exactly like:
+
+click NUMBER
+type TEXT
+press KEY
+
+Example:
+click 1
+type youtube
+press enter
 """
+
+    return prompt
+
+
+def generate_plan(elements, goal):
+
+    prompt = build_prompt(elements, goal)
 
     response = ollama.chat(
         model="llama3:8b",
         messages=[{"role": "user", "content": prompt}]
     )
 
-    return response["message"]["content"]
+    text = response["message"]["content"]
+
+    lines = text.split("\n")
+
+    plan = []
+
+    for line in lines:
+
+        line = line.strip()
+
+        if line == "":
+            continue
+
+        if line.startswith("click") or line.startswith("type") or line.startswith("press"):
+            plan.append(line)
+
+    return plan
